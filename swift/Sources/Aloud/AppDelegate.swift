@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hud = makeHUD()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.title = "◍"
+        statusItem.button?.image = Self.barsImage(Self.idleLevels)
         statusItem.menu = buildMenu()
 
         hotkey.onPressed = { [weak self] in self?.hotkeyPressed() }
@@ -216,6 +216,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.open(url)
     }
 
+    // MARK: - Menu bar waveform
+
+    /// The menu bar icon is a tiny waveform: still when idle, dancing while
+    /// it reads. A template image, so it follows menu bar light/dark.
+    private static let idleLevels: [CGFloat] = [0.45, 0.8, 1.0, 0.65, 0.35]
+    private static let danceFrames: [[CGFloat]] = [
+        [0.4, 0.9, 0.6, 1.0, 0.5],
+        [0.7, 0.5, 1.0, 0.6, 0.9],
+        [0.5, 1.0, 0.7, 0.8, 0.4],
+        [0.9, 0.6, 0.9, 0.4, 0.7],
+        [0.6, 0.8, 0.5, 1.0, 0.8],
+        [1.0, 0.5, 0.8, 0.6, 0.5],
+    ]
+    private var danceTimer: Timer?
+    private var danceIndex = 0
+
+    private static func barsImage(_ levels: [CGFloat]) -> NSImage {
+        let size = NSSize(width: 18, height: 14)
+        let barWidth: CGFloat = 2.4
+        let image = NSImage(size: size, flipped: false) { rect in
+            let count = CGFloat(levels.count)
+            let gap = (rect.width - barWidth * count) / (count - 1)
+            for (i, level) in levels.enumerated() {
+                let height = max(2.5, level * rect.height)
+                let bar = NSRect(
+                    x: CGFloat(i) * (barWidth + gap),
+                    y: (rect.height - height) / 2,
+                    width: barWidth, height: height)
+                NSColor.black.set()
+                NSBezierPath(roundedRect: bar, xRadius: barWidth / 2, yRadius: barWidth / 2)
+                    .fill()
+            }
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
+    private func setSpeakingIndicator(_ speaking: Bool) {
+        if speaking {
+            guard danceTimer == nil else { return }
+            danceTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) {
+                [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.danceIndex = (self.danceIndex + 1) % Self.danceFrames.count
+                    self.statusItem.button?.image =
+                        Self.barsImage(Self.danceFrames[self.danceIndex])
+                }
+            }
+        } else {
+            danceTimer?.invalidate()
+            danceTimer = nil
+            statusItem.button?.image = Self.barsImage(Self.idleLevels)
+        }
+    }
+
     // MARK: - Actions
 
     private func hotkeyPressed() {
@@ -271,7 +328,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func speak(_ text: String) {
-        statusItem.button?.title = "◉"
+        setSpeakingIndicator(true)
         if !engine.ready {
             hud.setMessage("Warming up the voice…", status: "loading the model")
         }
@@ -281,13 +338,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             text,
             onDone: { [weak self] in
                 DispatchQueue.main.async {
-                    self?.statusItem.button?.title = "◍"
+                    self?.setSpeakingIndicator(false)
                     self?.hud.hide(after: 0.7)
                 }
             },
             onError: { [weak self] error in
                 DispatchQueue.main.async {
-                    self?.statusItem.button?.title = "◍"
+                    self?.setSpeakingIndicator(false)
                     self?.hud.setMessage(
                         "Could not read that", status: String("\(error)".prefix(90)))
                     self?.hud.show()
@@ -298,7 +355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func stopSpeaking() {
         engine.stop()
-        statusItem.button?.title = "◍"
+        setSpeakingIndicator(false)
         hud.hide(after: 0)
     }
 
