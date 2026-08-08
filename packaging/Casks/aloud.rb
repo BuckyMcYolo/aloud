@@ -4,8 +4,8 @@
 #
 # On each release: bump `version`, paste the sha256 that release.sh prints.
 cask "aloud" do
-  version "0.2.1"
-  sha256 "a91344ee84f2688954b15a85c1cf0ccaee345aa53eb1167c18df82714ef54003"
+  version "0.2.2"
+  sha256 "d2183dda175c0808285b8785b863020d7d7bf858b709ea88917f18892a8a615d"
 
   url "https://github.com/BuckyMcYolo/aloud/releases/download/v#{version}/Aloud-#{version}.dmg"
   name "Aloud"
