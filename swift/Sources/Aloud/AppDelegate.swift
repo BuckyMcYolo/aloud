@@ -96,6 +96,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         speeds.submenu = speedMenu
         menu.addItem(speeds)
 
+        let shortcutMenu = NSMenu()
+        for combo in hotkeyPresets {
+            let item = makeItem(HotkeyManager.pretty(combo)) { [weak self] in
+                self?.pickHotkey(combo)
+            }
+            item.state = combo == config.hotkey ? .on : .off
+            shortcutMenu.addItem(item)
+        }
+        let shortcuts = NSMenuItem(title: "Shortcut", action: nil, keyEquivalent: "")
+        shortcuts.submenu = shortcutMenu
+        menu.addItem(shortcuts)
+
         menu.addItem(.separator())
         menu.addItem(makeItem("Preview voice") { [weak self] in self?.preview() })
 
@@ -155,6 +167,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.speed = value
         config.save()
         hud.setSpeedLabel(speedLabel(value))
+    }
+
+    private func pickHotkey(_ combo: String) {
+        config.hotkey = combo
+        config.save()
+        hotkey.register(combo: combo)
+        // Rebuild so the checkmark and the "Read selection" title both update.
+        statusItem.menu = buildMenu()
     }
 
     /// HUD speed button: advance to the next preset, return its label.

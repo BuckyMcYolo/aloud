@@ -57,6 +57,17 @@ let featuredVoices: [(label: String, id: String)] = [
 
 let speedPresets: [Double] = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5]
 
+// Offered in the Shortcut menu. Combos stay in pynput syntax so config.json
+// remains compatible with the Python implementation.
+let hotkeyPresets: [String] = [
+    "<alt>+<shift>+s",
+    "<ctrl>+s",
+    "<ctrl>+<shift>+s",
+    "<cmd>+<shift>+s",
+    "<ctrl>+<alt>+s",
+    "<alt>+<shift>+r",
+]
+
 func speedLabel(_ value: Double) -> String {
     value == value.rounded() ? "\(Int(value))×" : "\(value)×".replacingOccurrences(of: ".0×", with: "×")
 }
