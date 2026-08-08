@@ -2,6 +2,10 @@
 
 Read any selected text out loud on macOS with a local neural voice. Select text in any app, press the hotkey, and a small floating panel reads it back while showing the waveform of what you're hearing.
 
+<p align="center">
+  <img src="docs/hud.png" width="560" alt="The Aloud reader panel: source app, live waveform scrubber, and transport controls">
+</p>
+
 Runs [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) on device. No cloud, no API keys, nothing leaves your machine. Works in every app, including Electron ones like VS Code, Cursor, Slack, and Discord, where the built-in macOS Speak Selection silently does nothing.
 
 Requires Apple Silicon and macOS 14 or later.
