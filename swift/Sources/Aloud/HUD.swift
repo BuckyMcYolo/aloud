@@ -580,8 +580,20 @@ final class ReaderHUD {
         }
 
         if let hideAt, Date() >= hideAt {
-            hideNow()
+            if isUserHoldingPanel {
+                // Mid-drag (or mouse down on the panel): don't vanish out of
+                // the user's hand. Try again after they let go, with a beat
+                // to look at where it landed.
+                self.hideAt = Date().addingTimeInterval(1.2)
+            } else {
+                hideNow()
+            }
         }
+    }
+
+    private var isUserHoldingPanel: Bool {
+        NSEvent.pressedMouseButtons & 1 != 0
+            && panel.frame.contains(NSEvent.mouseLocation)
     }
 
     private func setPlayIcon(paused: Bool) {
