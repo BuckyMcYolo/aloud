@@ -173,15 +173,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func toggleLiquidGlass() {
         config.liquidGlass.toggle()
         config.save()
+        let placement = hud.placement
         hud.close()
         hud = makeHUD()
         statusItem.menu = buildMenu()
-        // Show the new chrome so the change is visible immediately.
-        hud.setMessage(
-            config.liquidGlass ? "Liquid glass" : "Classic",
-            status: "HUD style updated")
-        hud.show()
-        hud.hide(after: 1.6)
+        hud.adopt(placement)
+
+        if placement.visible, let name = placement.sourceName {
+            // The panel was up (likely mid-read): keep it up, where it was,
+            // showing what it was showing — just in the new chrome.
+            hud.setSource(name: name, icon: placement.sourceIcon)
+            hud.show()
+        } else {
+            // Otherwise flash a sample so the change is visible immediately.
+            hud.setMessage(
+                config.liquidGlass ? "Liquid glass" : "Classic",
+                status: "HUD style updated")
+            hud.show()
+            hud.hide(after: 1.6)
+        }
     }
 
     private func toggleLoginItem() {

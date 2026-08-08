@@ -235,6 +235,9 @@ final class ReaderHUD {
     private var messageMode = false
     private var sourceName: String?
     private var sourceIcon: NSImage?
+    private var userMoved = false
+    private var programmaticMove = false
+    private var moveObserver: NSObjectProtocol?
 
     init(
         engine: SpeechEngine,
@@ -258,7 +261,39 @@ final class ReaderHUD {
     func close() {
         timer?.invalidate()
         timer = nil
+        if let moveObserver {
+            NotificationCenter.default.removeObserver(moveObserver)
+        }
         panel.orderOut(nil)
+    }
+
+    /// Everything a rebuilt HUD needs to appear exactly where this one was.
+    struct Placement {
+        let origin: NSPoint
+        let userMoved: Bool
+        let visible: Bool
+        let sourceName: String?
+        let sourceIcon: NSImage?
+    }
+
+    var placement: Placement {
+        Placement(
+            origin: panel.frame.origin,
+            userMoved: userMoved,
+            visible: panel.alphaValue > 0.5 && panel.isVisible,
+            sourceName: sourceName,
+            sourceIcon: sourceIcon)
+    }
+
+    func adopt(_ placement: Placement) {
+        programmaticMove = true
+        panel.setFrameOrigin(placement.origin)
+        programmaticMove = false
+        userMoved = placement.userMoved
+        if let name = placement.sourceName {
+            sourceName = name
+            sourceIcon = placement.sourceIcon
+        }
     }
 
     private func build(
@@ -284,6 +319,17 @@ final class ReaderHUD {
         ]
         panel.alphaValue = 0
 
+        // A position the user chose by dragging is theirs; remember that and
+        // stop re-centering on show.
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification, object: panel, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.programmaticMove else { return }
+                self.userMoved = true
+            }
+        }
+
         let bounds = NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight)
 
         // The chrome: Liquid Glass on macOS 26+, otherwise the classic
@@ -294,9 +340,10 @@ final class ReaderHUD {
             content.autoresizingMask = [.width, .height]
             let glass = NSGlassEffectView(frame: bounds)
             glass.cornerRadius = cornerRadius
-            // A whisper of ink so the paper text stays legible on bright
-            // backgrounds; the glass supplies the rest of the contrast.
-            glass.tintColor = Palette.ink.withAlphaComponent(0.45)
+            // Clear, untinted glass — the whole point of the mode is seeing
+            // the desktop refract through the panel. Text gets a soft shadow
+            // instead of a scrim for legibility.
+            glass.style = .clear
             glass.contentView = content
             glass.autoresizingMask = [.width, .height]
             panel.contentView = glass
@@ -335,6 +382,14 @@ final class ReaderHUD {
         nameLabel.frame = NSRect(x: 20, y: 131, width: panelWidth - 40, height: 24)
         blur.addSubview(nameLabel)
 
+        if liquidGlass {
+            let textShadow = NSShadow()
+            textShadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+            textShadow.shadowOffset = NSSize(width: 0, height: -1)
+            textShadow.shadowBlurRadius = 3
+            nameLabel.shadow = textShadow
+        }
+
         // Waveform scrubber.
         wave = WaveView(
             frame: NSRect(x: 28, y: 92, width: panelWidth - 56, height: 32))
@@ -347,6 +402,14 @@ final class ReaderHUD {
         timeLabel.frame = NSRect(x: 20, y: 72, width: panelWidth - 40, height: 14)
         timeLabel.alignment = .center
         blur.addSubview(timeLabel)
+
+        if liquidGlass {
+            let textShadow = NSShadow()
+            textShadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+            textShadow.shadowOffset = NSSize(width: 0, height: -1)
+            textShadow.shadowBlurRadius = 3
+            timeLabel.shadow = textShadow
+        }
 
         // Transport row.
         playImage = symbol("play.fill", pointSize: 17, color: Palette.paper)
@@ -409,12 +472,14 @@ final class ReaderHUD {
     }
 
     private func reposition() {
-        guard let screen = NSScreen.main else { return }
+        guard !userMoved, let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
+        programmaticMove = true
         panel.setFrameOrigin(
             NSPoint(
                 x: visible.origin.x + (visible.width - panelWidth) / 2,
                 y: visible.origin.y + bottomInset))
+        programmaticMove = false
     }
 
     func hide(after delay: TimeInterval = 0) {
