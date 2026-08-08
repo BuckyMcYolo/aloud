@@ -7,7 +7,19 @@ set -euo pipefail
 
 if command -v brew >/dev/null 2>&1; then
   echo "Installing with Homebrew"
-  brew install --cask BuckyMcYolo/tap/aloud
+  if brew list --cask aloud >/dev/null 2>&1; then
+    if [[ ! -d /Applications/Aloud.app ]]; then
+      # The app was deleted by hand but Homebrew still has it registered;
+      # clear the stale record so the install doesn't trip over it.
+      brew uninstall --cask --force aloud >/dev/null 2>&1 || true
+      brew install --cask BuckyMcYolo/tap/aloud
+    else
+      brew upgrade --cask BuckyMcYolo/tap/aloud 2>/dev/null \
+        || echo "Aloud is already up to date."
+    fi
+  else
+    brew install --cask BuckyMcYolo/tap/aloud
+  fi
 else
   echo "Downloading the latest release"
   URL=$(curl -fsSL https://api.github.com/repos/BuckyMcYolo/aloud/releases/latest \
