@@ -12,7 +12,7 @@ cask "aloud" do
   desc "Read any selected text aloud with a local Kokoro voice"
   homepage "https://github.com/BuckyMcYolo/aloud"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
   depends_on arch: :arm64
 
   app "Aloud.app"
