@@ -6,3 +6,6 @@ dist/
 build/
 *.egg-info/
 .DS_Store
+swift/.build/
+swift/.xcbuild/
+swift/build/
