@@ -555,6 +555,11 @@ final class ReaderHUD {
     }
 
     private func tick() {
+        // First run: narrate the model download while the panel waits.
+        if messageMode, let status = engine.loadStatus {
+            timeLabel.stringValue = status
+        }
+
         if let snap = engine.snapshot() {
             if snap.sessionID != sessionID {
                 sessionID = snap.sessionID

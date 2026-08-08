@@ -11,7 +11,20 @@ if CommandLine.arguments.count >= 2, CommandLine.arguments[1] == "--selftest" {
 
     print("loading model…")
     let loadStart = Date()
-    try engine.load { print("  \($0)") }
+    let statusThread = Thread {
+        var last: String?
+        while true {
+            let status = engine.loadStatus
+            if let status, status != last {
+                print("  \(status)")
+                last = status
+            }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+    }
+    statusThread.start()
+    try engine.load()
+    statusThread.cancel()
     print(String(format: "loaded in %.1fs", -loadStart.timeIntervalSinceNow))
 
     let done = DispatchSemaphore(value: 0)

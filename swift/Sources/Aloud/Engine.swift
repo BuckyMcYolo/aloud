@@ -26,6 +26,23 @@ final class SpeechEngine {
     var voice: String
     var speed: Double
 
+    /// Human-readable first-run status ("Downloading voice model — 42%");
+    /// nil once the model is ready. The HUD polls this while warming up.
+    var loadStatus: String? {
+        statusLock.lock()
+        defer { statusLock.unlock() }
+        return _loadStatus
+    }
+
+    private var _loadStatus: String?
+    private let statusLock = NSLock()
+
+    private func setLoadStatus(_ status: String?) {
+        statusLock.lock()
+        _loadStatus = status
+        statusLock.unlock()
+    }
+
     private var pipeline: KPipeline?
     private let loadLock = NSLock()
     private let synthQueue = DispatchQueue(label: "aloud.synthesis")
@@ -51,10 +68,11 @@ final class SpeechEngine {
     }
 
     /// Load Kokoro, downloading weights on first run. Blocking; call off-main.
-    func load(progress: ((String) -> Void)? = nil) throws {
+    func load() throws {
         loadLock.lock()
         defer { loadLock.unlock() }
         if pipeline != nil { return }
+        defer { setLoadStatus(nil) }
 
         let dir = Self.weightsDirectory
         let configURL = dir.appendingPathComponent("config.json")
@@ -64,28 +82,81 @@ final class SpeechEngine {
 
         let base = "https://huggingface.co/mweinbach/Kokoro-82M-Swift/resolve/main/MLX_GPU"
         if !FileManager.default.fileExists(atPath: configURL.path) {
-            progress?("Downloading voice model…")
-            try Self.download("\(base)/config.json", to: configURL)
+            setLoadStatus("Downloading voice model…")
+            try Self.download("\(base)/config.json", to: configURL, progress: nil)
         }
         if !FileManager.default.fileExists(atPath: weightsURL.path) {
-            progress?("Downloading voice model (310 MB)…")
-            try Self.download("\(base)/\(ConvertedWeightsLayout.modelFileName)", to: weightsURL)
+            setLoadStatus("Downloading voice model (310 MB)…")
+            try Self.download("\(base)/\(ConvertedWeightsLayout.modelFileName)", to: weightsURL) {
+                [weak self] fraction in
+                self?.setLoadStatus(
+                    "Downloading voice model — \(Int(fraction * 100))%")
+            }
         }
 
-        progress?("Loading voice model…")
+        setLoadStatus("Loading voice model…")
         let model = try KModel(configURL: configURL, weightsURL: weightsURL)
         let voices = VoiceLoader(baseDirectory: voicesDir, enableDownload: true)
         pipeline = KPipeline(model: model, voices: voices, langCode: "en-us")
     }
 
-    private static func download(_ urlString: String, to dest: URL) throws {
+    /// Synchronous download with progress, via a delegate-driven task.
+    /// Blocking is fine here: load() only ever runs on the synth queue.
+    private static func download(
+        _ urlString: String, to dest: URL, progress: ((Double) -> Void)?
+    ) throws {
         guard let url = URL(string: urlString) else {
             throw URLError(.badURL)
         }
-        let tmp = dest.appendingPathExtension("part")
-        let data = try Data(contentsOf: url)  // blocking is fine on the synth queue
-        try data.write(to: tmp)
-        _ = try FileManager.default.replaceItemAt(dest, withItemAt: tmp)
+
+        final class Delegate: NSObject, URLSessionDownloadDelegate {
+            let progress: ((Double) -> Void)?
+            let dest: URL
+            let done = DispatchSemaphore(value: 0)
+            var failure: Error?
+
+            init(dest: URL, progress: ((Double) -> Void)?) {
+                self.dest = dest
+                self.progress = progress
+            }
+
+            func urlSession(
+                _ session: URLSession, downloadTask: URLSessionDownloadTask,
+                didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
+                totalBytesExpectedToWrite: Int64
+            ) {
+                if totalBytesExpectedToWrite > 0 {
+                    progress?(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+                }
+            }
+
+            func urlSession(
+                _ session: URLSession, downloadTask: URLSessionDownloadTask,
+                didFinishDownloadingTo location: URL
+            ) {
+                do {
+                    _ = try FileManager.default.replaceItemAt(dest, withItemAt: location)
+                } catch {
+                    failure = error
+                }
+            }
+
+            func urlSession(
+                _ session: URLSession, task: URLSessionTask,
+                didCompleteWithError error: Error?
+            ) {
+                if let error { failure = failure ?? error }
+                done.signal()
+            }
+        }
+
+        let delegate = Delegate(dest: dest, progress: progress)
+        let session = URLSession(
+            configuration: .default, delegate: delegate, delegateQueue: nil)
+        session.downloadTask(with: url).resume()
+        delegate.done.wait()
+        session.invalidateAndCancel()
+        if let failure = delegate.failure { throw failure }
     }
 
     // MARK: - Text chunking
