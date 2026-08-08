@@ -8,10 +8,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-VERSION=$(defaults read "$(pwd)/build/Aloud.app/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "0.2.0")
-DMG="build/Aloud-$VERSION.dmg"
-
 ./make_app.sh
+
+# Read the version AFTER the build so the DMG name matches what's inside.
+VERSION=$(defaults read "$(pwd)/build/Aloud.app/Contents/Info.plist" CFBundleShortVersionString)
+DMG="build/Aloud-$VERSION.dmg"
 
 echo "▸ notarizing (this waits on Apple, typically 1–5 minutes)"
 ditto -c -k --keepParent build/Aloud.app build/Aloud-notarize.zip

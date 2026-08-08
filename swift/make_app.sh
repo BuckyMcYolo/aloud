@@ -23,6 +23,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$PRODUCTS/Aloud" "$APP/Contents/MacOS/Aloud"
+cp Icon/Aloud.icns "$APP/Contents/Resources/"
 # MLX looks for its compiled Metal kernels in this bundle at runtime.
 for bundle in "$PRODUCTS"/*.bundle; do
   cp -R "$bundle" "$APP/Contents/Resources/"
@@ -37,9 +38,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleName</key><string>Aloud</string>
   <key>CFBundleDisplayName</key><string>Aloud</string>
   <key>CFBundleIdentifier</key><string>house.aloud</string>
-  <key>CFBundleVersion</key><string>0.2.0</string>
-  <key>CFBundleShortVersionString</key><string>0.2.0</string>
+  <key>CFBundleVersion</key><string>0.2.1</string>
+  <key>CFBundleShortVersionString</key><string>0.2.1</string>
   <key>CFBundleExecutable</key><string>Aloud</string>
+  <key>CFBundleIconFile</key><string>Aloud</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
