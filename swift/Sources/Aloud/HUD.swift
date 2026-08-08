@@ -239,6 +239,7 @@ final class ReaderHUD {
     init(
         engine: SpeechEngine,
         speedLabel: String,
+        liquidGlass: Bool = false,
         onStop: @escaping () -> Void,
         onToggle: @escaping () -> Void,
         onSeek: @escaping (Double) -> Void,
@@ -250,10 +251,19 @@ final class ReaderHUD {
         self.onToggle = onToggle
         self.onSkip = onSkip
         self.onSpeed = onSpeed
-        build(speedLabel: speedLabel, onSeek: onSeek)
+        build(speedLabel: speedLabel, liquidGlass: liquidGlass, onSeek: onSeek)
     }
 
-    private func build(speedLabel: String, onSeek: @escaping (Double) -> Void) {
+    /// Tear down the panel; used when the HUD is rebuilt with a new style.
+    func close() {
+        timer?.invalidate()
+        timer = nil
+        panel.orderOut(nil)
+    }
+
+    private func build(
+        speedLabel: String, liquidGlass: Bool, onSeek: @escaping (Double) -> Void
+    ) {
         let screen = NSScreen.main?.frame ?? .zero
         let frame = NSRect(
             x: (screen.width - panelWidth) / 2, y: bottomInset,
@@ -274,23 +284,42 @@ final class ReaderHUD {
         ]
         panel.alphaValue = 0
 
-        let blur = NSVisualEffectView(
-            frame: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight))
-        blur.material = .hudWindow
-        blur.blendingMode = .behindWindow
-        blur.state = .active
-        blur.wantsLayer = true
-        blur.layer?.cornerRadius = cornerRadius
-        blur.layer?.masksToBounds = true
-        blur.autoresizingMask = [.width, .height]
-        panel.contentView = blur
+        let bounds = NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight)
 
-        let scrim = NSView(frame: blur.bounds)
-        scrim.wantsLayer = true
-        scrim.layer?.backgroundColor = Palette.ink.cgColor
-        scrim.layer?.cornerRadius = cornerRadius
-        scrim.autoresizingMask = [.width, .height]
-        blur.addSubview(scrim)
+        // The chrome: Liquid Glass on macOS 26+, otherwise the classic
+        // vibrancy blur under an ink scrim. Same content either way.
+        let blur: NSView
+        if liquidGlass, #available(macOS 26.0, *) {
+            let content = NSView(frame: bounds)
+            content.autoresizingMask = [.width, .height]
+            let glass = NSGlassEffectView(frame: bounds)
+            glass.cornerRadius = cornerRadius
+            // A whisper of ink so the paper text stays legible on bright
+            // backgrounds; the glass supplies the rest of the contrast.
+            glass.tintColor = Palette.ink.withAlphaComponent(0.45)
+            glass.contentView = content
+            glass.autoresizingMask = [.width, .height]
+            panel.contentView = glass
+            blur = content
+        } else {
+            let vibrancy = NSVisualEffectView(frame: bounds)
+            vibrancy.material = .hudWindow
+            vibrancy.blendingMode = .behindWindow
+            vibrancy.state = .active
+            vibrancy.wantsLayer = true
+            vibrancy.layer?.cornerRadius = cornerRadius
+            vibrancy.layer?.masksToBounds = true
+            vibrancy.autoresizingMask = [.width, .height]
+            panel.contentView = vibrancy
+
+            let scrim = NSView(frame: bounds)
+            scrim.wantsLayer = true
+            scrim.layer?.backgroundColor = Palette.ink.cgColor
+            scrim.layer?.cornerRadius = cornerRadius
+            scrim.autoresizingMask = [.width, .height]
+            vibrancy.addSubview(scrim)
+            blur = vibrancy
+        }
 
         // Source row: the app being read from.
         iconView = NSImageView(frame: NSRect(x: 0, y: 131, width: 26, height: 26))

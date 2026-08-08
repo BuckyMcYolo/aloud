@@ -21,15 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         engine = SpeechEngine(voice: config.voice, speed: config.speed)
-        hud = ReaderHUD(
-            engine: engine,
-            speedLabel: speedLabel(config.speed),
-            onStop: { [weak self] in self?.stopSpeaking() },
-            onToggle: { [weak self] in self?.engine.togglePause() },
-            onSeek: { [weak self] fraction in self?.engine.seek(fraction: fraction) },
-            onSkip: { [weak self] seconds in self?.engine.seek(seconds: seconds) },
-            onSpeed: { [weak self] in self?.cycleSpeed() ?? "1×" }
-        )
+        hud = makeHUD()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "◍"
@@ -49,10 +41,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.unregister()
     }
 
+    private func makeHUD() -> ReaderHUD {
+        ReaderHUD(
+            engine: engine,
+            speedLabel: speedLabel(config.speed),
+            liquidGlass: config.liquidGlass,
+            onStop: { [weak self] in self?.stopSpeaking() },
+            onToggle: { [weak self] in self?.engine.togglePause() },
+            onSeek: { [weak self] fraction in self?.engine.seek(fraction: fraction) },
+            onSkip: { [weak self] seconds in self?.engine.seek(seconds: seconds) },
+            onSpeed: { [weak self] in self?.cycleSpeed() ?? "1×" }
+        )
+    }
+
     // MARK: - Menu
 
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
+        handlers.removeAll()
+        voiceMenuItems.removeAll()
+        speedMenuItems.removeAll()
 
         let combo = HotkeyManager.pretty(config.hotkey)
         menu.addItem(
@@ -94,6 +102,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let login = makeItem("Start at login") { [weak self] in self?.toggleLoginItem() }
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
+
+        if #available(macOS 26.0, *) {
+            let glass = makeItem("Liquid Glass HUD") { [weak self] in
+                self?.toggleLiquidGlass()
+            }
+            glass.state = config.liquidGlass ? .on : .off
+            menu.addItem(glass)
+        }
 
         menu.addItem(
             makeItem("Grant Accessibility access…") { Self.openAccessibilitySettings() })
@@ -152,6 +168,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let value = speedPresets[(index + 1) % speedPresets.count]
         pickSpeed(value)
         return speedLabel(value)
+    }
+
+    private func toggleLiquidGlass() {
+        config.liquidGlass.toggle()
+        config.save()
+        hud.close()
+        hud = makeHUD()
+        statusItem.menu = buildMenu()
+        // Show the new chrome so the change is visible immediately.
+        hud.setMessage(
+            config.liquidGlass ? "Liquid glass" : "Classic",
+            status: "HUD style updated")
+        hud.show()
+        hud.hide(after: 1.6)
     }
 
     private func toggleLoginItem() {

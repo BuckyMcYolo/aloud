@@ -7,6 +7,7 @@ struct Config {
     var speed = 1.0
     var hotkey = "<alt>+<shift>+s"
     var restoreClipboard = true
+    var liquidGlass = false
 
     static let fileURL = FileManager.default
         .homeDirectoryForCurrentUser
@@ -21,6 +22,7 @@ struct Config {
         if let s = json["speed"] as? Double { config.speed = s }
         if let h = json["hotkey"] as? String { config.hotkey = h }
         if let r = json["restore_clipboard"] as? Bool { config.restoreClipboard = r }
+        if let g = json["liquid_glass"] as? Bool { config.liquidGlass = g }
         return config
     }
 
@@ -30,6 +32,7 @@ struct Config {
             "speed": speed,
             "hotkey": hotkey,
             "restore_clipboard": restoreClipboard,
+            "liquid_glass": liquidGlass,
         ]
         guard
             let data = try? JSONSerialization.data(
