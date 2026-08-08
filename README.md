@@ -19,17 +19,25 @@ through a clipboard round-trip instead of macOS Services, so it works everywhere
 
 ## Install
 
+Apple Silicon, macOS 14+.
+
 ```bash
-git clone https://github.com/YOURNAME/aloud.git
-cd aloud
-./install.sh
+brew install --cask BuckyMcYolo/tap/aloud
 ```
+
+Or download the DMG from [Releases](https://github.com/BuckyMcYolo/aloud/releases)
+and drag Aloud to Applications. The app is signed and notarized.
 
 Then open **System Settings › Privacy & Security › Accessibility** and enable
 Aloud. It needs this to read your selection — that's the whole reason for the
 permission, and nothing leaves your machine.
 
-First run downloads the model once (~350 MB) into `~/.aloud/models`.
+First launch downloads the model once (~310 MB) into
+`~/Library/Application Support/Aloud`.
+
+> The native Swift app lives in `swift/`. The original Python implementation
+> (`aloud/` + `install.sh`) still works and is kept as a reference — see
+> [RELEASING.md](RELEASING.md) for how releases are built.
 
 ## Use
 

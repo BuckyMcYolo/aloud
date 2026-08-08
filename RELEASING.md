@@ -13,7 +13,7 @@
 
 2. **GitHub repos** — create `aloud` (this repo) and `homebrew-tap`.
    Copy `packaging/Casks/aloud.rb` into the tap as `Casks/aloud.rb`
-   and replace `YOURUSER` in both files.
+   and replace `BuckyMcYolo` in both files.
 
 ## Each release
 
@@ -32,7 +32,7 @@ gh release create v0.2.0 swift/build/Aloud-0.2.0.dmg --title "Aloud 0.2.0"
 
 Users then install with either:
 
-- `brew install --cask YOURUSER/tap/aloud`
+- `brew install --cask BuckyMcYolo/tap/aloud`
 - or download the DMG from GitHub Releases and drag to Applications.
 
 First launch downloads the Kokoro model (~310 MB) into
